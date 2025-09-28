@@ -1,0 +1,337 @@
+
+!pip install googletrans==4.0.0-rc1
+!pip install gTTS
+!pip install opencv-python
+# Imports
+import tensorflow as tf
+from tensorflow.keras.preprocessing import image
+import numpy as np
+
+import cv2
+import os
+from googletrans import Translator
+from gtts import gTTS
+from google.colab import files
+from IPython.display import display, Audio, FileLink
+import ipywidgets as widgets
+
+# Load model
+model = tf.keras.models.load_model('/content/plant_model_v5-beta.h5')
+
+# Class labels
+class_labels = [
+    'Apple Apple scab', 'Apple Black rot', 'Apple Cedar apple rust', 'Apple healthy',
+    'Not a plant', 'Blueberry healthy', 'Cherry Powdery mildew', 'Cherry healthy',
+    'Corn Cercospora leaf spot Gray leaf spot', 'Corn Common rust', 'Corn Northern Leaf Blight',
+    'Corn healthy', 'Grape Black rot', 'Grape Esca Black Measles', 'Grape Leaf blight Isariopsis Leaf Spot',
+    'Grape healthy', 'Orange Haunglongbing Citrus greening', 'Peach Bacterial spot', 'Peach healthy',
+    'Pepper bell Bacterial spot', 'Pepper bell healthy', 'Potato Early blight', 'Potato Late blight',
+    'Potato healthy', 'Raspberry healthy', 'Soybean healthy', 'Squash Powdery mildew',
+    'Strawberry Leaf scorch', 'Strawberry healthy', 'Tomato Bacterial spot', 'Tomato Early blight',
+    'Tomato Late blight', 'Tomato Leaf Mold', 'Tomato Septoria leaf spot',
+    'Tomato Spider mites Two spotted spider mite', 'Tomato Target Spot', 'Tomato Tomato Yellow Leaf Curl Virus',
+    'Tomato Tomato mosaic virus', 'Tomato healthy'
+]
+
+# Remedies
+disease_remedies = {
+    'Apple Apple scab': 'Apply fungicide early in the season; remove fallen leaves.',
+    'Apple Black rot': 'Prune infected branches; use appropriate fungicide.',
+    'Apple Cedar apple rust': 'Remove nearby juniper hosts; apply fungicides.',
+    'Apple healthy': 'No action needed. Your plant is healthy!',
+    'Not a plant': 'Please upload a valid plant image.',
+    'Blueberry healthy': 'No treatment necessary.',
+    'Cherry Powdery mildew': 'Apply sulfur or neem oil sprays.',
+    'Cherry healthy': 'No treatment necessary.',
+    'Corn Cercospora leaf spot Gray leaf spot': 'Rotate crops; apply fungicides at early signs.',
+    'Corn Common rust': 'Use resistant varieties and apply fungicide if needed.',
+    'Corn Northern Leaf Blight': 'Use resistant hybrids and timely fungicide application.',
+    'Corn healthy': 'No action needed.',
+    'Grape Black rot': 'Prune infected areas and use protective fungicide.',
+    'Grape Esca Black Measles': 'Remove infected vines; no effective chemical treatment.',
+    'Grape Leaf blight Isariopsis Leaf Spot': 'Use fungicide and avoid overhead watering.',
+    'Grape healthy': 'Plant looks great!',
+    'Orange Haunglongbing Citrus greening': 'No cure; remove and destroy infected trees.',
+    'Peach Bacterial spot': 'Use copper-based sprays and resistant varieties.',
+    'Peach healthy': 'No disease detected.',
+    'Pepper bell Bacterial spot': 'Use certified disease-free seeds; copper-based sprays help.',
+    'Pepper bell healthy': 'Plant is healthy.',
+    'Potato Early blight': 'Apply fungicide and rotate crops annually.',
+    'Potato Late blight': 'Remove affected plants; apply fungicide with chlorothalonil.',
+    'Potato healthy': 'Your plant is in good health.',
+    'Raspberry healthy': 'No issues detected.',
+    'Soybean healthy': 'No disease symptoms found.',
+    'Squash Powdery mildew': 'Spray with neem oil or potassium bicarbonate.',
+    'Strawberry Leaf scorch': 'Avoid overhead watering; use fungicide if severe.',
+    'Strawberry healthy': 'Everything looks fine!',
+    'Tomato Bacterial spot': 'Use copper-based sprays and remove infected plants.',
+    'Tomato Early blight': 'Apply fungicide and practice crop rotation.',
+    'Tomato Late blight': 'Remove affected areas and use chlorothalonil sprays.',
+    'Tomato Leaf Mold': 'Ensure good air circulation; apply fungicide.',
+    'Tomato Septoria leaf spot': 'Remove infected leaves and apply fungicide.',
+    'Tomato Spider mites Two spotted spider mite': 'Use insecticidal soap or neem oil.',
+    'Tomato Target Spot': 'Apply fungicide; remove infected leaves.',
+    'Tomato Tomato Yellow Leaf Curl Virus': 'Control whiteflies; use resistant varieties.',
+    'Tomato Tomato mosaic virus': 'Remove infected plants; disinfect tools.',
+    'Tomato healthy': 'No signs of disease!'
+}
+
+# Environment conditions
+disease_remedies = {
+    'Apple Apple scab': 'Apply fungicide early in the season; remove fallen leaves.',
+    'Apple Black rot': 'Prune infected branches; use appropriate fungicide.',
+    'Apple Cedar apple rust': 'Remove nearby juniper hosts; apply fungicides.',
+    'Apple healthy': 'No action needed. Your plant is healthy!',
+    'Not a plant': 'Please upload a valid plant image.',
+    'Blueberry healthy': 'No treatment necessary.',
+    'Cherry Powdery mildew': 'Apply sulfur or neem oil sprays.',
+    'Cherry healthy': 'No treatment necessary.',
+    'Corn Cercospora leaf spot Gray leaf spot': 'Rotate crops; apply fungicides at early signs.',
+    'Corn Common rust': 'Use resistant varieties and apply fungicide if needed.',
+    'Corn Northern Leaf Blight': 'Use resistant hybrids and timely fungicide application.',
+    'Corn healthy': 'No action needed.',
+    'Grape Black rot': 'Prune infected areas and use protective fungicide.',
+    'Grape Esca Black Measles': 'Remove infected vines; no effective chemical treatment.',
+    'Grape Leaf blight Isariopsis Leaf Spot': 'Use fungicide and avoid overhead watering.',
+    'Grape healthy': 'Plant looks great!',
+    'Orange Haunglongbing Citrus greening': 'No cure; remove and destroy infected trees.',
+    'Peach Bacterial spot': 'Use copper-based sprays and resistant varieties.',
+    'Peach healthy': 'No disease detected.',
+    'Pepper bell Bacterial spot': 'Use certified disease-free seeds; copper-based sprays help.',
+    'Pepper bell healthy': 'Plant is healthy.',
+    'Potato Early blight': 'Apply fungicide and rotate crops annually.',
+    'Potato Late blight': 'Remove affected plants; apply fungicide with chlorothalonil.',
+    'Potato healthy': 'Your plant is in good health.',
+    'Raspberry healthy': 'No issues detected.',
+    'Soybean healthy': 'No disease symptoms found.',
+    'Squash Powdery mildew': 'Spray with neem oil or potassium bicarbonate.',
+    'Strawberry Leaf scorch': 'Avoid overhead watering; use fungicide if severe.',
+    'Strawberry healthy': 'Everything looks fine!',
+    'Tomato Bacterial spot': 'Use copper-based sprays and remove infected plants.',
+    'Tomato Early blight': 'Apply fungicide and practice crop rotation.',
+    'Tomato Late blight': 'Remove affected areas and use chlorothalonil sprays.',
+    'Tomato Leaf Mold': 'Ensure good air circulation; apply fungicide.',
+    'Tomato Septoria leaf spot': 'Remove infected leaves and apply fungicide.',
+    'Tomato Spider mites Two spotted spider mite': 'Use insecticidal soap or neem oil.',
+    'Tomato Target Spot': 'Apply fungicide; remove infected leaves.',
+    'Tomato Tomato Yellow Leaf Curl Virus': 'Control whiteflies; use resistant varieties.',
+    'Tomato Tomato mosaic virus': 'Remove infected plants; disinfect tools.',
+    'Tomato healthy': 'No signs of disease!'
+}
+
+# Environment conditions
+disease_environment_ranges = {
+    'Apple Apple scab': {'temp_range': (20, 30), 'humidity_range': (70, 90)},
+    'Apple Black rot': {'temp_range': (22, 30), 'humidity_range': (75, 90)},
+    'Apple Cedar apple rust': {'temp_range': (18, 26), 'humidity_range': (70, 90)},
+    'Apple healthy': None,
+    'Not a plant': None,
+    'Blueberry healthy': None,
+    'Cherry Powdery mildew': {'temp_range': (20, 28), 'humidity_range': (60, 80)},
+    'Cherry healthy': None,
+    'Corn Cercospora leaf spot Gray leaf spot': {'temp_range': (22, 30), 'humidity_range': (70, 90)},
+    'Corn Common rust': {'temp_range': (18, 28), 'humidity_range': (75, 90)},
+    'Corn Northern Leaf Blight': {'temp_range': (20, 28), 'humidity_range': (70, 85)},
+    'Corn healthy': None,
+    'Grape Black rot': {'temp_range': (24, 30), 'humidity_range': (75, 90)},
+    'Grape Esca (Black Measles)': {'temp_range': (25, 35), 'humidity_range': (60, 80)},
+    'Grape Leaf blight (Isariopsis Leaf Spot)': {'temp_range': (20, 28), 'humidity_range': (70, 85)},
+    'Grape healthy': None,
+    'Orange Haunglongbing (Citrus greening)': {'temp_range': (25, 35), 'humidity_range': (50, 70)},
+    'Peach Bacterial spot': {'temp_range': (20, 28), 'humidity_range': (65, 80)},
+    'Peach healthy': None,
+    'Pepper bell Bacterial spot': {'temp_range': (22, 28), 'humidity_range': (65, 85)},
+    'Pepper bell healthy': None,
+    'Potato Early blight': {'temp_range': (20, 28), 'humidity_range': (70, 85)},
+    'Potato Late blight': {'temp_range': (18, 24), 'humidity_range': (80, 90)},
+    'Potato healthy': None,
+    'Raspberry healthy': None,
+    'Soybean healthy': None,
+    'Squash Powdery mildew': {'temp_range': (20, 28), 'humidity_range': (65, 80)},
+    'Strawberry Leaf scorch': {'temp_range': (24, 32), 'humidity_range': (60, 75)},
+    'Strawberry healthy': None,
+    'Tomato Bacterial spot': {'temp_range': (20, 28), 'humidity_range': (60, 80)},
+    'Tomato Early blight': {'temp_range': (20, 28), 'humidity_range': (70, 85)},
+    'Tomato Late blight': {'temp_range': (16, 24), 'humidity_range': (80, 90)},
+    'Tomato Leaf Mold': {'temp_range': (20, 28), 'humidity_range': (80, 90)},
+    'Tomato Septoria leaf spot': {'temp_range': (20, 28), 'humidity_range': (70, 85)},
+    'Tomato Spider mites Two-spotted spider mite': {'temp_range': (25, 35), 'humidity_range': (40, 60)},
+    'Tomato Target Spot': {'temp_range': (22, 30), 'humidity_range': (70, 85)},
+    'Tomato Tomato Yellow Leaf Curl Virus': {'temp_range': (25, 35), 'humidity_range': (50, 70)},
+    'Tomato Tomato mosaic virus': {'temp_range': (22, 32), 'humidity_range': (50, 70)},
+    'Tomato healthy': None
+}
+available_languages = {
+    'English': 'en', 'Hindi': 'hi', 'Bengali': 'bn', 'Marathi': 'mr', 'Telugu': 'te',
+    'Tamil': 'ta', 'Gujarati': 'gu', 'Kannada': 'kn', 'Malayalam': 'ml', 'Odia': 'or'
+}
+
+# Functions
+def preprocess_image(image_path):
+    img = image.load_img(image_path, target_size=(224, 224))
+    img_array = image.img_to_array(img)
+    img_array = np.expand_dims(img_array, axis=0)
+    return img_array / 255.0
+
+def better_leaf_segmentation(img):
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    lower_green = np.array([25, 40, 40])
+    upper_green = np.array([85, 255, 255])
+    mask = cv2.inRange(hsv, lower_green, upper_green)
+    leaf_only = cv2.bitwise_and(img, img, mask=mask)
+    return leaf_only, mask
+
+def calculate_health_percentage(image_path):
+    img = cv2.imread(image_path)
+    img = cv2.resize(img, (224, 224))
+    leaf_only, mask = better_leaf_segmentation(img)
+    hsv = cv2.cvtColor(leaf_only, cv2.COLOR_BGR2HSV)
+
+    lower_green = np.array([35, 40, 40])
+    upper_green = np.array([85, 255, 255])
+    green_mask = cv2.inRange(hsv, lower_green, upper_green)
+
+    lower_yellow = np.array([15, 50, 50])
+    upper_yellow = np.array([35, 255, 255])
+    yellow_mask = cv2.inRange(hsv, lower_yellow, upper_yellow)
+
+    green_pixels = cv2.countNonZero(green_mask)
+    yellow_pixels = cv2.countNonZero(yellow_mask)
+    leaf_pixels = cv2.countNonZero(mask)
+
+    if leaf_pixels == 0:
+        healthy_percentage = 0
+        infected_percentage = 0
+    else:
+        healthy_percentage = (green_pixels / leaf_pixels) * 100
+        infected_percentage = (yellow_pixels / leaf_pixels) * 100
+
+    return healthy_percentage, infected_percentage
+
+def analyze_leaf_color(image_path):
+    img = cv2.imread(image_path)
+    img = cv2.resize(img, (224, 224))
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    mean_hue = np.mean(hsv[:, :, 0])
+    mean_sat = np.mean(hsv[:, :, 1])
+    mean_val = np.mean(hsv[:, :, 2])
+
+    deficiency = "Healthy"
+    suggestion = "No deficiency detected."
+
+    if mean_val < 100 and 20 < mean_hue < 40:
+        deficiency = "Nitrogen Deficiency"
+        suggestion = "Apply nitrogen-rich fertilizer like urea or compost."
+    elif 130 < mean_hue < 160:
+        deficiency = "Phosphorus Deficiency"
+        suggestion = "Use phosphate fertilizers like bone meal."
+    elif 10 < mean_hue < 20 and mean_val < 120:
+        deficiency = "Potassium Deficiency"
+        suggestion = "Apply potash-based fertilizers like potassium sulfate."
+    elif mean_sat < 60 and mean_val > 130:
+        deficiency = "Magnesium Deficiency"
+        suggestion = "Use magnesium sulfate (Epsom salt)."
+
+    return deficiency, suggestion
+
+def get_severity(healthy_percentage, infected_percentage):
+    if infected_percentage > 50:
+        return "Severe Infection"
+    elif 30 < infected_percentage <= 50:
+        return "Moderate Infection"
+    else:
+        return "Mild Infection"
+
+def environment_advice(disease, temp, humidity):
+    advice = ""
+    ranges = disease_environment_ranges.get(disease)
+    if ranges:
+        temp_min, temp_max = ranges['temp_range']
+        humidity_min, humidity_max = ranges['humidity_range']
+        if temp < temp_min:
+            advice += f"\n🌡️ Temperature is too low! Recommended: {temp_min}-{temp_max}°C."
+        elif temp > temp_max:
+            advice += f"\n🌡️ Temperature is too high! Recommended: {temp_min}-{temp_max}°C."
+        else:
+            advice += f"\n🌡️ Temperature is within the recommended range: {temp_min}-{temp_max}°C."
+
+        if humidity < humidity_min:
+            advice += f"\n💧 Humidity is too low! Recommended: {humidity_min}-{humidity_max}%."
+        elif humidity > humidity_max:
+            advice += f"\n💧 Humidity is too high! Recommended: {humidity_min}-{humidity_max}%."
+        else:
+            advice += f"\n💧 Humidity is within the recommended range: {humidity_min}-{humidity_max}%."
+    else:
+        advice = "\n✅ No specific environmental recommendations for this condition."
+    return advice
+
+def speak_and_download(text, lang='en'):
+    tts = gTTS(text=text, lang=lang)
+    tts.save("result_audio.mp3")
+    display(Audio("result_audio.mp3", autoplay=False))
+    display(FileLink("result_audio.mp3", result_html_prefix="🔊 Download your audio: "))
+
+def predict(image_path, user_lang, temp, humidity):
+    img_array = preprocess_image(image_path)
+    preds = model.predict(img_array)
+    idx = np.argmax(preds[0])
+    disease = class_labels[idx]
+    confidence = preds[0][idx] * 100
+
+    remedy = disease_remedies.get(disease, "No remedy found.")
+    healthy_percentage, infected_percentage = calculate_health_percentage(image_path)
+    severity = get_severity(healthy_percentage, infected_percentage)
+    deficiency, nutrient_tip = analyze_leaf_color(image_path)
+    environment_msg = environment_advice(disease, temp, humidity)
+
+    result = f"""
+🌿 Predicted Disease: {disease}
+🔍 Confidence: {confidence:.2f}%
+🌿 Leaf Health: {healthy_percentage:.2f}% healthy, {infected_percentage:.2f}% infected.
+ Severity Level: {severity}
+
+💡 Remedy: {remedy}
+
+🍃 Nutrient Deficiency: {deficiency}
+✅ Suggestion: {nutrient_tip}
+
+🌡️ Temperature: {temp}°C
+💧 Humidity: {humidity}%
+
+🌿 Environmental Conditions and Advice:
+{environment_msg}
+"""
+    print(result)
+
+    translator = Translator()
+    translated = translator.translate(result, dest=user_lang).text
+    print("\n🌐 Translated Output:\n", translated)
+    speak_and_download(translated, user_lang)
+
+def upload_only():
+    lang = widgets.Dropdown(options=list(available_languages.keys()), description='Language:')
+    temp = widgets.FloatText(description='Temperature (°C):', value=25)
+    humidity = widgets.FloatText(description='Humidity (%):', value=70)
+    upload_btn = widgets.Button(description="Upload Image", button_style='success')
+    predict_btn = widgets.Button(description="Predict", button_style='success')
+    display(lang, temp, humidity, upload_btn, predict_btn)
+
+    image_path = {'path': None}
+
+    def upload_image(change):
+        uploaded = files.upload()
+        image_path['path'] = next(iter(uploaded))
+        print("✅ Image uploaded successfully!")
+
+    def on_predict_click(btn):
+        if image_path['path'] is None:
+            print("⚠️ Please upload an image first!")
+            return
+        lang_code = available_languages[lang.value]
+        predict(image_path['path'], lang_code, temp.value, humidity.value)
+
+    upload_btn.on_click(upload_image)
+    predict_btn.on_click(on_predict_click)
+
+# --- Start Program ---
+upload_only()
